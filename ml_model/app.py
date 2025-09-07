@@ -8,7 +8,19 @@ from tensorflow.keras.applications import InceptionResNetV2
 from tensorflow.keras.layers import GlobalAveragePooling2D, Dropout, Dense
 from tensorflow.keras.models import Model
 import sys, json
+import boto3
 
+# Use environment variables for S3 credentials and model path
+S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
+S3_KEY = os.environ.get("S3_MODEL_KEY")
+MODEL_PATH = "/tmp/Pretrained_model.h5"
+
+# Fallback for local development
+if not S3_BUCKET or not S3_KEY:
+    print("S3 environment variables not set. Using local model path for development.")
+    MODEL_PATH = "ml_model/models/Pretrained_model.h5"
+    
+# The rest of your code remains largely the same, but structured to run on a production server.
 CLASSES = [
     "Apple___Apple_scab","Apple___Black_rot","Apple___Cedar_apple_rust","Apple___healthy",
     "Blueberry___healthy","Cherry_(including_sour)___Powdery_mildew","Cherry_(including_sour)___healthy",
@@ -43,7 +55,6 @@ PLANT_PREFIX = {
     "orange": "Orange___",
 }
 
-# If the model was trained at 299, set 299 here (InceptionResNetV2 default); else keep 224.
 INPUT_SIZE = 224
 
 def build_model(weights_path=None, num_classes=38):
@@ -112,12 +123,24 @@ def predict_image(model, image_array, plant_name=None):
         "confidence": float(probs[top_idx])
     }
 
-app = Flask(__name__)
-CORS(app) # Enables CORS for all routes
-MODEL_PATH = "ml_model/models/Pretrained_model.h5"
+application = Flask(__name__)
+CORS(application)
+
+# Download model from S3 if S3 environment variables are set
+if S3_BUCKET and S3_KEY:
+    try:
+        s3 = boto3.client('s3')
+        # Create the directory if it doesn't exist
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        s3.download_file(S3_BUCKET, S3_KEY, MODEL_PATH)
+        print(f"Model downloaded successfully from S3://{S3_BUCKET}/{S3_KEY}")
+    except Exception as e:
+        print(f"Error downloading model from S3: {e}")
+        sys.exit(1)
+
 model = build_model(weights_path=MODEL_PATH, num_classes=len(CLASSES))
 
-@app.route("/predict", methods=["POST"])
+@application.route("/predict", methods=["POST"])
 def predict_api():
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
@@ -142,7 +165,7 @@ def topk_from_probs_subset(probs, idxs, k=5):
         for i in topk_idx
     ]
 
-@app.route("/topk", methods=["POST"])
+@application.route("/topk", methods=["POST"])
 def topk_api():
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
@@ -178,36 +201,4 @@ def topk_api():
     top5 = topk_from_probs(probs)
     return jsonify({"topk": top5})
 
-if __name__ == "__main__":
-    if "--image" in sys.argv and "--plant" in sys.argv:
-        image_path = sys.argv[sys.argv.index("--image") + 1]
-        plant_type = sys.argv[sys.argv.index("--plant") + 1]
-        with open(image_path, "rb") as f:
-            arr = preprocess_image(f)
-        print(json.dumps(predict_image(model, arr, plant_type)))
-    else:
-        # Use gunicorn as the production server
-        from gunicorn.app.base import BaseApplication
-
-        class FlaskApp(BaseApplication):
-            def __init__(self, app, options=None):
-                self.options = options or {}
-                self.application = app
-                super().__init__()
-
-            def load_config(self):
-                for key, value in self.options.items():
-                    if key in self.cfg.settings and value is not None:
-                        self.cfg.set(key.lower(), value)
-
-            def load(self):
-                return self.application
-
-        options = {
-            "bind": "0.0.0.0:5000",
-            "workers": 4,
-            "errorlog": "-",
-            "accesslog": "-",
-            "capture_output": True,
-        }
-        FlaskApp(app, options).run()
+# Elastic Beanstalk automatically runs gunicorn, so no need for `if __name__ == "__main__"`
