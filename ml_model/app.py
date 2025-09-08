@@ -195,4 +195,4 @@ def topk_api():
 if __name__ == "__main__":
     print("Starting Flask API on port 5001...")
     model = build_model(weights_path=MODEL_PATH, num_classes=len(CLASSES))
-    application.run(host="0.0.0.0", port=5001, debug=True)
+    application.run(host="0.0.0.0", port=5001, debug=False, use_reloader=False)
