@@ -13,6 +13,7 @@ app.use(cors());
 const upload = multer({ dest: "uploads/" });
 
 // Get the Flask API URL from an environment variable, with a fallback for local testing
+// This now points to the local Flask app running on the same EC2 instance
 const FLASK_API_URL = process.env.FLASK_API_URL || "http://localhost:8000";
 
 // Predict: expects multipart with fields: plant (text) and image (file)
@@ -38,7 +39,7 @@ app.post("/predict", upload.single("image"), async (req, res) => {
     fs.unlink(req.file.path, () => {});
 
     return res.json({
-      prediction: out.predicted_class,
+      prediction: out.prediction,
       confidence: out.confidence,
       filtered: out.filtered_predictions || null
     });

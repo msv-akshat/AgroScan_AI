@@ -1,26 +1,32 @@
-import os, io
+# Standard library imports
+import os
+import io
+import sys
+import json
+import numpy as np
+
+# Flask and web-related imports
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import numpy as np
+
+# Deep learning framework imports
 from PIL import Image
-import tensorflow as tf
-from tensorflow.keras.applications import InceptionResNetV2
-from tensorflow.keras.layers import GlobalAveragePooling2D, Dropout, Dense
-from tensorflow.keras.models import Model
-import sys, json
+import torch
+import torch.nn as nn
+from torchvision import transforms
+import timm
+
+# AWS SDK
 import boto3
 
 # Use environment variables for S3 credentials and model path
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
 S3_KEY = os.environ.get("S3_MODEL_KEY")
-MODEL_PATH = "/tmp/Pretrained_model.h5"
+MODEL_PATH = "/tmp/best_vit_model.pth"
 
-# Fallback for local development
-if not S3_BUCKET or not S3_KEY:
-    print("S3 environment variables not set. Using local model path for development.")
-    MODEL_PATH = "ml_model/models/Pretrained_model.h5"
+# Model configuration
+INPUT_SIZE = 224
 
-# The rest of your code remains largely the same, but structured to run on a production server.
 CLASSES = [
     "Apple___Apple_scab","Apple___Black_rot","Apple___Cedar_apple_rust","Apple___healthy",
     "Blueberry___healthy","Cherry_(including_sour)___Powdery_mildew","Cherry_(including_sour)___healthy",
@@ -55,77 +61,33 @@ PLANT_PREFIX = {
     "orange": "Orange___",
 }
 
-INPUT_SIZE = 224
+# Pre-processing transformations for the PyTorch model
+val_transform = transforms.Compose([
+    transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5]*3, [0.5]*3)])
 
 model = None
+device = torch.device("cpu")
 
 def build_model(weights_path=None, num_classes=38):
     global model
     if model is None:
-        base_model = InceptionResNetV2(include_top=False, weights="imagenet",
-                                       input_shape=(INPUT_SIZE, INPUT_SIZE, 3))
-        x = base_model.output
-        x = GlobalAveragePooling2D(name="global_average_pooling2d_1")(x)
-        x = Dropout(0.5, name="dropout_3")(x)
-        x = Dense(1024, activation="relu", name="dense_4")(x)
-        x = Dropout(0.5, name="dropout_4")(x)
-        x = Dense(512, activation="relu", name="dense_5")(x)
-        x = Dropout(0.5, name="dropout_5")(x)
-        x = Dense(256, activation="relu", name="dense_6")(x)
-        outputs = Dense(num_classes, activation="softmax", name="dense_7")(x)
-        model = Model(inputs=base_model.input, outputs=outputs)
-        if weights_path:
-            model.load_weights(weights_path, by_name=True, skip_mismatch=True)
-        out_dim = model.output_shape[-1]
-        if out_dim != len(CLASSES):
-            raise RuntimeError(f"Model head has {out_dim} outputs, but {len(CLASSES)} classes are defined. "
-                               f"Fix weights or class list before serving.")
+        print("Loading model...")
+        model = timm.create_model("vit_tiny_patch16_224", pretrained=False, num_classes=num_classes)
+        if weights_path and os.path.exists(weights_path):
+            model.load_state_dict(torch.load(weights_path, map_location=device))
+        model.to(device)
+        model.eval()
     return model
 
-def preprocess_image(file, target_size=(INPUT_SIZE, INPUT_SIZE)):
-    img = Image.open(file)
-    if img.mode != "RGB":
-        img = img.convert("RGB")
-    img = img.resize(target_size)
-    arr = np.asarray(img, dtype="float32") / 255.0
-    return np.expand_dims(arr, axis=0)
+def preprocess_image(file):
+    img = Image.open(file).convert('RGB')
+    return val_transform(img).unsqueeze(0)
 
-def _softmax_safe(vec):
-    vec = np.asarray(vec, dtype="float64")
-    vec = vec - np.max(vec)
-    e = np.exp(vec)
-    s = e.sum()
-    return e / s if s > 0 else np.full_like(vec, 1.0 / len(vec))
-
-def predict_image(model, image_array, plant_name=None):
-    raw = model.predict(image_array)
-    probs = np.squeeze(raw)
-    if probs.ndim != 1 or probs.size != len(CLASSES):
-        return {
-            "error": f"Unexpected prediction shape {probs.shape}; expected ({len(CLASSES)},).",
-            "predicted_class": None,
-            "confidence": None
-        }
-
-    if plant_name:
-        prefix = PLANT_PREFIX.get(plant_name.lower())
-        idxs = [i for i, c in enumerate(CLASSES) if prefix and c.startswith(prefix)]
-        if idxs:
-            subset = np.clip(probs[idxs], 1e-12, 1.0)
-            subset = _softmax_safe(np.log(subset))
-            k = int(np.argmax(subset))
-            top_idx = idxs[k]
-            return {
-                "predicted_class": CLASSES[top_idx],
-                "confidence": float(subset[k]),
-                "filtered_predictions": {CLASSES[i]: float(p) for i, p in zip(idxs, subset)}
-            }
-
-    top_idx = int(np.argmax(probs))
-    return {
-        "predicted_class": CLASSES[top_idx],
-        "confidence": float(probs[top_idx])
-    }
+def topk_from_probs(probs, k=5):
+    top_k_values, top_k_indices = torch.topk(probs, k)
+    return [{"class": CLASSES[i], "confidence": float(v)} for v, i in zip(top_k_values, top_k_indices)]
 
 application = Flask(__name__)
 CORS(application)
@@ -146,29 +108,38 @@ def predict_api():
     global model
     if model is None:
         model = build_model(weights_path=MODEL_PATH, num_classes=len(CLASSES))
-    
+
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
     file = request.files["file"]
     plant = request.form.get("plant", type=str)
-    img_arr = preprocess_image(file)
-    res = predict_image(model, img_arr, plant)
-    if res.get("error"):
-        return jsonify(res), 500
-    return jsonify(res)
 
-def topk_from_probs(probs, k=5):
-    idxs = np.argsort(probs)[-k:][::-1]
-    return [{"class": CLASSES[i], "confidence": float(probs[i])} for i in idxs]
+    inputs = preprocess_image(file).to(device)
+    outputs = model(inputs)
+    probs = torch.nn.functional.softmax(outputs, dim=1).squeeze().cpu()
 
-def topk_from_probs_subset(probs, idxs, k=5):
-    subset = probs[idxs]
-    subset = _softmax_safe(subset)
-    topk_idx = np.argsort(subset)[-min(5, len(subset)):][::-1]
-    return [
-        {"class": CLASSES[idxs[i]], "confidence": float(subset[i])}
-        for i in topk_idx
-    ]
+    # Filter predictions based on plant name
+    if plant:
+        prefix = PLANT_PREFIX.get(plant.lower())
+        if prefix:
+            idxs = [i for i, c in enumerate(CLASSES) if c.startswith(prefix)]
+            if idxs:
+                subset_probs = probs[idxs]
+                pred_idx = idxs[torch.argmax(subset_probs).item()]
+                confidence = float(subset_probs.max().item())
+                return jsonify({
+                    "prediction": CLASSES[pred_idx],
+                    "confidence": confidence
+                })
+
+    # Fallback to top prediction if no plant filter
+    pred_idx = torch.argmax(probs).item()
+    confidence = float(probs.max().item())
+
+    return jsonify({
+        "prediction": CLASSES[pred_idx],
+        "confidence": confidence
+    })
 
 @application.route("/topk", methods=["POST"])
 def topk_api():
@@ -178,34 +149,24 @@ def topk_api():
 
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
-
     file = request.files["file"]
     plant = request.form.get("plant", type=str)
 
-    img_arr = preprocess_image(file)
-    raw = model.predict(img_arr)
-    probs = np.squeeze(raw)
+    inputs = preprocess_image(file).to(device)
+    outputs = model(inputs)
+    probs = torch.nn.functional.softmax(outputs, dim=1).squeeze().cpu()
 
-    if probs.ndim != 1 or probs.size != len(CLASSES):
-        return jsonify({"error": f"Unexpected prediction shape {probs.shape}; expected ({len(CLASSES)},)."}), 500
-
+    topk = []
     if plant:
         prefix = PLANT_PREFIX.get(plant.lower())
-        if not prefix:
-            return jsonify({"error": f"Unknown plant '{plant}'"}), 400
+        if prefix:
+            idxs = [i for i, c in enumerate(CLASSES) if c.startswith(prefix)]
+            subset_probs = probs[idxs]
+            top_k_values, top_k_indices = torch.topk(subset_probs, k=min(5, len(subset_probs)))
+            topk = [{"class": CLASSES[idxs[i]], "confidence": float(v)} for v, i in zip(top_k_values, top_k_indices)]
+        else:
+            topk = topk_from_probs(probs)
+    else:
+        topk = topk_from_probs(probs)
 
-        idxs = [i for i, c in enumerate(CLASSES) if c.startswith(prefix)]
-        if not idxs:
-            return jsonify({"error": f"No classes found for plant '{plant}'"}), 400
-
-        subset_probs = probs[idxs]
-        subset_probs = _softmax_safe(subset_probs)
-        topk_idx = np.argsort(subset_probs)[-min(5, len(subset_probs)):][::-1]
-
-        top5 = [
-            {"class": CLASSES[idxs[i]], "confidence": float(subset_probs[i])}
-            for i in topk_idx
-        ]
-        return jsonify({"topk": top5})
-    top5 = topk_from_probs(probs)
-    return jsonify({"topk": top5})
+    return jsonify({"topk": topk})
