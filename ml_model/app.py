@@ -102,6 +102,10 @@ if S3_BUCKET and S3_KEY:
         print(f"Error downloading model from S3: {e}")
         sys.exit(1)
 
+@application.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "Flask API is running"})
+
 @application.route("/predict", methods=["POST"])
 def predict_api():
     global model
