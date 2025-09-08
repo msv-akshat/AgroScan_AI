@@ -14,6 +14,8 @@ const PlantDiseasePredictor = () => {
 
   const fileInputRef = useRef(null);
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
   const handleFileChange = (e) => {
     const f = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
     setFile(f);
@@ -54,8 +56,7 @@ const PlantDiseasePredictor = () => {
     formData.append("image", file);
 
     try {
-      // Use a relative path, which Nginx will proxy to the Node.js backend
-      const res = await fetch("/api/predict", { method: "POST", body: formData });
+      const res = await fetch(`${BACKEND_URL}/predict`, { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setPrediction({
@@ -84,10 +85,9 @@ const PlantDiseasePredictor = () => {
     const formData = new FormData();
     formData.append("plant", plant);
     formData.append("image", file);
-    
+
     try {
-      // Use a relative path, which Nginx will proxy to the Node.js backend
-      const res = await fetch("/api/topk", { method: "POST", body: formData });
+      const res = await fetch(`${BACKEND_URL}/topk`, { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setTopk(data.topk || []);
