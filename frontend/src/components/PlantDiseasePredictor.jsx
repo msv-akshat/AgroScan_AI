@@ -55,7 +55,8 @@ const PlantDiseasePredictor = () => {
 
     try {
       // Use a relative path, which Nginx will proxy to the Node.js backend
-      const res = await fetch("/api/predict", { method: "POST", body: formData });
+      const res = await fetch("http://13.48.56.255:5000/predict", { method: "POST", body: formData });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setPrediction({
