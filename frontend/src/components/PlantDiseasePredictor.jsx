@@ -1,4 +1,7 @@
 import React, { useState, useRef } from "react";
+import { createRoot } from 'react-dom/client'
+import '../index.css'
+import App from '../App.jsx'
 
 const PlantDiseasePredictor = () => {
   const [file, setFile] = useState(null);
@@ -7,6 +10,7 @@ const PlantDiseasePredictor = () => {
   const [topk, setTopk] = useState([]);
   const [showTopk, setShowTopk] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -44,40 +48,57 @@ const PlantDiseasePredictor = () => {
       return;
     }
 
+    setIsLoading(true);
     const formData = new FormData();
     formData.append("plant", plant);
     formData.append("image", file);
 
     try {
-      const res = await fetch("http://localhost:5000/predict", { method: "POST", body: formData });
+      // Use a relative path, which Nginx will proxy to the Node.js backend
+      const res = await fetch("/api/predict", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setPrediction({
         prediction: data.prediction ?? data.predicted_class ?? data.predictedClass,
         confidence: data.confidence,
       });
+      setTopk([]);
+      setShowTopk(false);
     } catch (err) {
       console.error(err);
       alert("Prediction failed");
       setPrediction(null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleTopk = async () => {
     if (!ensureFile()) return;
+    if (!plant) {
+      alert("Please select a plant.");
+      return;
+    }
+
+    setIsLoading(true);
     const formData = new FormData();
     formData.append("plant", plant);
     formData.append("image", file);
+    
     try {
-      const res = await fetch("http://localhost:5000/topk", { method: "POST", body: formData });
+      // Use a relative path, which Nginx will proxy to the Node.js backend
+      const res = await fetch("/api/topk", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setTopk(data.topk || []);
+      setPrediction(null);
       setShowTopk(true);
     } catch (err) {
       console.error(err);
       alert("Top‑5 failed");
       setShowTopk(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -123,10 +144,18 @@ const PlantDiseasePredictor = () => {
               {file && <div className="text-center mb-3 text-muted">Selected: {file.name}</div>}
 
               <div className="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
-                <button type="submit" className="btn btn-primary">Predict</button>
-                <button type="button" onClick={handleTopk} className="btn btn-secondary">Show Top‑5</button>
+                <button type="submit" className="btn btn-primary" disabled={isLoading}>Predict</button>
+                <button type="button" onClick={handleTopk} className="btn btn-secondary" disabled={isLoading}>Show Top‑5</button>
               </div>
             </form>
+
+            {isLoading && (
+              <div className="d-flex justify-content-center mt-4">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            )}
 
             {prediction && (
               <div className="card mt-4 p-3 bg-light">
