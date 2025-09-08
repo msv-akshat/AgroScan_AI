@@ -64,7 +64,8 @@ PLANT_PREFIX = {
 val_transform = transforms.Compose([
     transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
     transforms.ToTensor(),
-    transforms.Normalize([0.5]*3, [0.5]*3)])
+    transforms.Normalize([0.5]*3, [0.5]*3)
+])
 
 model = None
 device = torch.device("cpu")
@@ -76,6 +77,9 @@ def build_model(weights_path=None, num_classes=38):
         model = timm.create_model("vit_tiny_patch16_224", pretrained=False, num_classes=num_classes)
         if weights_path and os.path.exists(weights_path):
             model.load_state_dict(torch.load(weights_path, map_location=device))
+            print(f"Model weights loaded from {weights_path}")
+        else:
+            print("Warning: Model weights not found, using untrained model")
         model.to(device)
         model.eval()
     return model
@@ -88,10 +92,11 @@ def topk_from_probs(probs, k=5):
     top_k_values, top_k_indices = torch.topk(probs, k)
     return [{"class": CLASSES[i], "confidence": float(v)} for v, i in zip(top_k_values, top_k_indices)]
 
+# Flask app
 application = Flask(__name__)
 CORS(application)
 
-# Download model from S3 if S3 environment variables are set
+# Download model from S3 if environment variables exist
 if S3_BUCKET and S3_KEY:
     try:
         s3 = boto3.client('s3')
@@ -99,8 +104,7 @@ if S3_BUCKET and S3_KEY:
         s3.download_file(S3_BUCKET, S3_KEY, MODEL_PATH)
         print(f"Model downloaded successfully from S3://{S3_BUCKET}/{S3_KEY}")
     except Exception as e:
-        print(f"Error downloading model from S3: {e}")
-        sys.exit(1)
+        print(f"Warning: Could not download model from S3: {e}")
 
 @application.route("/", methods=["GET"])
 def home():
@@ -121,7 +125,6 @@ def predict_api():
     outputs = model(inputs)
     probs = torch.nn.functional.softmax(outputs, dim=1).squeeze().cpu()
 
-    # Filter predictions based on plant name
     if plant:
         prefix = PLANT_PREFIX.get(plant.lower())
         if prefix:
@@ -130,19 +133,11 @@ def predict_api():
                 subset_probs = probs[idxs]
                 pred_idx = idxs[torch.argmax(subset_probs).item()]
                 confidence = float(subset_probs.max().item())
-                return jsonify({
-                    "prediction": CLASSES[pred_idx],
-                    "confidence": confidence
-                })
+                return jsonify({"prediction": CLASSES[pred_idx], "confidence": confidence})
 
-    # Fallback to top prediction if no plant filter
     pred_idx = torch.argmax(probs).item()
     confidence = float(probs.max().item())
-
-    return jsonify({
-        "prediction": CLASSES[pred_idx],
-        "confidence": confidence
-    })
+    return jsonify({"prediction": CLASSES[pred_idx], "confidence": confidence})
 
 @application.route("/topk", methods=["POST"])
 def topk_api():
@@ -173,3 +168,9 @@ def topk_api():
         topk = topk_from_probs(probs)
 
     return jsonify({"topk": topk})
+
+# --- MAIN ENTRY POINT ---
+if __name__ == "__main__":
+    print("Starting Flask API on port 5001...")
+    model = build_model(weights_path=MODEL_PATH, num_classes=len(CLASSES))
+    application.run(host="0.0.0.0", port=5001, debug=True)
