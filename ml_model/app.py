@@ -21,7 +21,7 @@ import boto3
 # Use environment variables for S3 credentials and model path
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
 S3_KEY = os.environ.get("S3_MODEL_KEY")
-MODEL_PATH = "/tmp/best_vit_model.pth"
+MODEL_PATH = "/tmp/pretrained_model.pth"
 
 # Model configuration
 INPUT_SIZE = 224
@@ -96,15 +96,22 @@ def topk_from_probs(probs, k=5):
 application = Flask(__name__)
 CORS(application)
 
-# Download model from S3 if environment variables exist
-if S3_BUCKET and S3_KEY:
-    try:
-        s3 = boto3.client('s3')
-        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-        s3.download_file(S3_BUCKET, S3_KEY, MODEL_PATH)
-        print(f"Model downloaded successfully from S3://{S3_BUCKET}/{S3_KEY}")
-    except Exception as e:
-        print(f"Warning: Could not download model from S3: {e}")
+if not os.path.exists(MODEL_PATH):
+    if S3_BUCKET and S3_KEY:
+        try:
+            import boto3
+            s3 = boto3.client("s3")
+            os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+            s3.download_file(S3_BUCKET, S3_KEY, MODEL_PATH)
+            print(f"Model downloaded successfully from S3://{S3_BUCKET}/{S3_KEY}")
+        except Exception as e:
+            print(f"Error downloading model from S3: {e}")
+            sys.exit(1)
+    else:
+        print("S3 environment variables not set. Cannot download model.")
+        sys.exit(1)
+else:
+    print(f"Using existing model at {MODEL_PATH}")
 
 @application.route("/", methods=["GET"])
 def home():
