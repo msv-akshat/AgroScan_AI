@@ -2,7 +2,7 @@
 import os
 import io
 import sys
-import numpy as np
+from collections import OrderedDict
 
 # Flask and web-related imports
 from flask import Flask, request, jsonify
@@ -18,14 +18,13 @@ import timm
 # AWS SDK
 import boto3
 
-# Use environment variables for S3 credentials and model path
+# --- Environment variables ---
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
 S3_KEY = os.environ.get("S3_MODEL_KEY")
 MODEL_PATH = "/tmp/pretrained_model.pth"
 
 # Model configuration
 INPUT_SIZE = 224
-
 CLASSES = [
     "Apple___Apple_scab","Apple___Black_rot","Apple___Cedar_apple_rust","Apple___healthy",
     "Blueberry___healthy","Cherry_(including_sour)___Powdery_mildew","Cherry_(including_sour)___healthy",
@@ -60,7 +59,7 @@ PLANT_PREFIX = {
     "orange": "Orange___",
 }
 
-# Pre-processing transformations for the PyTorch model
+# Pre-processing transformations
 val_transform = transforms.Compose([
     transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
     transforms.ToTensor(),
@@ -70,13 +69,35 @@ val_transform = transforms.Compose([
 model = None
 device = torch.device("cpu")
 
+# --- Helper functions ---
+def download_model_from_s3(bucket, key, path):
+    """Download the model from S3 to local path."""
+    try:
+        s3 = boto3.client("s3")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        s3.download_file(bucket, key, path)
+        print(f"Model downloaded successfully from S3://{bucket}/{key}")
+    except Exception as e:
+        print(f"Error downloading model from S3: {e}")
+        sys.exit(1)
+
+def load_model_weights(model, weights_path):
+    """Load weights, handling DataParallel 'module.' prefix if necessary."""
+    state_dict = torch.load(weights_path, map_location=device)
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:] if k.startswith("module.") else k  # remove 'module.' if exists
+        new_state_dict[name] = v
+    model.load_state_dict(new_state_dict)
+    return model
+
 def build_model(weights_path=None, num_classes=38):
     global model
     if model is None:
         print("Loading model...")
         model = timm.create_model("vit_tiny_patch16_224", pretrained=False, num_classes=num_classes)
         if weights_path and os.path.exists(weights_path):
-            model.load_state_dict(torch.load(weights_path, map_location=device))
+            model = load_model_weights(model, weights_path)
             print(f"Model weights loaded from {weights_path}")
         else:
             print("Warning: Model weights not found, using untrained model")
@@ -92,27 +113,21 @@ def topk_from_probs(probs, k=5):
     top_k_values, top_k_indices = torch.topk(probs, k)
     return [{"class": CLASSES[i], "confidence": float(v)} for v, i in zip(top_k_values, top_k_indices)]
 
-# Flask app
+# --- Flask app ---
 application = Flask(__name__)
 CORS(application)
 
+# Ensure model is present
 if not os.path.exists(MODEL_PATH):
     if S3_BUCKET and S3_KEY:
-        try:
-            import boto3
-            s3 = boto3.client("s3")
-            os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-            s3.download_file(S3_BUCKET, S3_KEY, MODEL_PATH)
-            print(f"Model downloaded successfully from S3://{S3_BUCKET}/{S3_KEY}")
-        except Exception as e:
-            print(f"Error downloading model from S3: {e}")
-            sys.exit(1)
+        download_model_from_s3(S3_BUCKET, S3_KEY, MODEL_PATH)
     else:
         print("S3 environment variables not set. Cannot download model.")
         sys.exit(1)
 else:
     print(f"Using existing model at {MODEL_PATH}")
 
+# --- API routes ---
 @application.route("/", methods=["GET"])
 def home():
     return jsonify({"message": "Flask API is running"})
