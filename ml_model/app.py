@@ -1,6 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 import os, io
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -22,7 +19,7 @@ MODEL_PATH = "/tmp/Pretrained_model.h5"
 if not S3_BUCKET or not S3_KEY:
     print("S3 environment variables not set. Using local model path for development.")
     MODEL_PATH = "ml_model/models/Pretrained_model.h5"
-    
+
 # The rest of your code remains largely the same, but structured to run on a production server.
 CLASSES = [
     "Apple___Apple_scab","Apple___Black_rot","Apple___Cedar_apple_rust","Apple___healthy",
@@ -60,25 +57,29 @@ PLANT_PREFIX = {
 
 INPUT_SIZE = 224
 
+model = None
+
 def build_model(weights_path=None, num_classes=38):
-    base_model = InceptionResNetV2(include_top=False, weights="imagenet",
-                                   input_shape=(INPUT_SIZE, INPUT_SIZE, 3))
-    x = base_model.output
-    x = GlobalAveragePooling2D(name="global_average_pooling2d_1")(x)
-    x = Dropout(0.5, name="dropout_3")(x)
-    x = Dense(1024, activation="relu", name="dense_4")(x)
-    x = Dropout(0.5, name="dropout_4")(x)
-    x = Dense(512, activation="relu", name="dense_5")(x)
-    x = Dropout(0.5, name="dropout_5")(x)
-    x = Dense(256, activation="relu", name="dense_6")(x)
-    outputs = Dense(num_classes, activation="softmax", name="dense_7")(x)
-    model = Model(inputs=base_model.input, outputs=outputs)
-    if weights_path:
-        model.load_weights(weights_path, by_name=True, skip_mismatch=True)
-    out_dim = model.output_shape[-1]
-    if out_dim != len(CLASSES):
-        raise RuntimeError(f"Model head has {out_dim} outputs, but {len(CLASSES)} classes are defined. "
-                           f"Fix weights or class list before serving.")
+    global model
+    if model is None:
+        base_model = InceptionResNetV2(include_top=False, weights="imagenet",
+                                       input_shape=(INPUT_SIZE, INPUT_SIZE, 3))
+        x = base_model.output
+        x = GlobalAveragePooling2D(name="global_average_pooling2d_1")(x)
+        x = Dropout(0.5, name="dropout_3")(x)
+        x = Dense(1024, activation="relu", name="dense_4")(x)
+        x = Dropout(0.5, name="dropout_4")(x)
+        x = Dense(512, activation="relu", name="dense_5")(x)
+        x = Dropout(0.5, name="dropout_5")(x)
+        x = Dense(256, activation="relu", name="dense_6")(x)
+        outputs = Dense(num_classes, activation="softmax", name="dense_7")(x)
+        model = Model(inputs=base_model.input, outputs=outputs)
+        if weights_path:
+            model.load_weights(weights_path, by_name=True, skip_mismatch=True)
+        out_dim = model.output_shape[-1]
+        if out_dim != len(CLASSES):
+            raise RuntimeError(f"Model head has {out_dim} outputs, but {len(CLASSES)} classes are defined. "
+                               f"Fix weights or class list before serving.")
     return model
 
 def preprocess_image(file, target_size=(INPUT_SIZE, INPUT_SIZE)):
@@ -133,7 +134,6 @@ CORS(application)
 if S3_BUCKET and S3_KEY:
     try:
         s3 = boto3.client('s3')
-        # Create the directory if it doesn't exist
         os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
         s3.download_file(S3_BUCKET, S3_KEY, MODEL_PATH)
         print(f"Model downloaded successfully from S3://{S3_BUCKET}/{S3_KEY}")
@@ -141,10 +141,12 @@ if S3_BUCKET and S3_KEY:
         print(f"Error downloading model from S3: {e}")
         sys.exit(1)
 
-model = build_model(weights_path=MODEL_PATH, num_classes=len(CLASSES))
-
 @application.route("/predict", methods=["POST"])
 def predict_api():
+    global model
+    if model is None:
+        model = build_model(weights_path=MODEL_PATH, num_classes=len(CLASSES))
+    
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
     file = request.files["file"]
@@ -170,6 +172,10 @@ def topk_from_probs_subset(probs, idxs, k=5):
 
 @application.route("/topk", methods=["POST"])
 def topk_api():
+    global model
+    if model is None:
+        model = build_model(weights_path=MODEL_PATH, num_classes=len(CLASSES))
+
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
 
@@ -203,5 +209,3 @@ def topk_api():
         return jsonify({"topk": top5})
     top5 = topk_from_probs(probs)
     return jsonify({"topk": top5})
-
-# Elastic Beanstalk automatically runs gunicorn, so no need for `if __name__ == "__main__"`
