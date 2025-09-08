@@ -33,3 +33,6 @@ venv/
 # Ignore large ML files and data
 ml_model/data/
 ml_model/models/
+
+*.pem
+*.key
