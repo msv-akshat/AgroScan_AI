@@ -14,7 +14,7 @@ const PlantDiseasePredictor = () => {
 
   const fileInputRef = useRef(null);
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const BACKEND_URL = "http://13.48.56.255:5000";  // your EC2 public IP
 
   const handleFileChange = (e) => {
     const f = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
@@ -56,7 +56,7 @@ const PlantDiseasePredictor = () => {
     formData.append("image", file);
 
     try {
-      const res = await fetch("/api/predict", { method: "POST", body: formData });
+      const res = await fetch(`${BACKEND_URL}/predict`, { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setPrediction({
@@ -87,7 +87,7 @@ const PlantDiseasePredictor = () => {
     formData.append("image", file);
 
     try {
-      const res = await fetch("/api/topk", { method: "POST", body: formData });
+      const res = await fetch(`${BACKEND_URL}/topk`, { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setTopk(data.topk || []);
