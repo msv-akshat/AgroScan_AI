@@ -56,7 +56,7 @@ const PlantDiseasePredictor = () => {
     formData.append("image", file);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/predict`, { method: "POST", body: formData });
+      const res = await fetch("/api/predict", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setPrediction({
@@ -87,7 +87,7 @@ const PlantDiseasePredictor = () => {
     formData.append("image", file);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/topk`, { method: "POST", body: formData });
+      const res = await fetch("/api/topk", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       setTopk(data.topk || []);
