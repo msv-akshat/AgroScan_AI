@@ -84,8 +84,6 @@ const PlantDiseasePredictor = () => {
       <div className="row justify-content-center">
         <div className="col-lg-7 col-md-8 col-sm-10">
           <div className="card shadow-lg p-4 border-0 rounded-4">
-            <h2 className="card-title text-center mb-4 text-success">🌱 Plant Disease Detector</h2>
-
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
                 <label htmlFor="plantSelect" className="form-label fw-bold">Select Plant</label>
