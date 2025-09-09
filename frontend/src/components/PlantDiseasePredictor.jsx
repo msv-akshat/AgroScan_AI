@@ -1,7 +1,5 @@
 import React, { useState, useRef } from "react";
-import { createRoot } from 'react-dom/client'
-import '../index.css'
-import App from '../App.jsx'
+import "../index.css";
 
 const PlantDiseasePredictor = () => {
   const [file, setFile] = useState(null);
@@ -13,25 +11,19 @@ const PlantDiseasePredictor = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const fileInputRef = useRef(null);
-
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://13.48.56.255:5000";
 
   const handleFileChange = (e) => {
-    const f = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+    const f = e.target.files?.[0] || null;
     setFile(f);
-
-    if (f) {
-      setPreviewUrl(URL.createObjectURL(f));
-    } else {
-      setPreviewUrl(null);
-    }
+    setPreviewUrl(f ? URL.createObjectURL(f) : null);
   };
 
   const handlePlantChange = (e) => setPlant(e.target.value);
 
   const ensureFile = () => {
-    if (!(file && file instanceof File)) {
-      if (fileInputRef.current) fileInputRef.current.value = "";
+    if (!(file instanceof File)) {
+      fileInputRef.current && (fileInputRef.current.value = "");
       alert("Please select an image again.");
       return false;
     }
@@ -40,15 +32,7 @@ const PlantDiseasePredictor = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!ensureFile()) return;
-    if (!plant) {
-      alert("Please select a plant.");
-      return;
-    }
-    if (!(file instanceof File)) {
-      alert("Please select an image again.");
-      return;
-    }
+    if (!ensureFile() || !plant) return alert("Please select a plant.");
 
     setIsLoading(true);
     const formData = new FormData();
@@ -59,10 +43,7 @@ const PlantDiseasePredictor = () => {
       const res = await fetch(`${BACKEND_URL}/predict`, { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      setPrediction({
-        prediction: data.prediction ?? data.predicted_class ?? data.predictedClass,
-        confidence: data.confidence,
-      });
+      setPrediction({ prediction: data.prediction ?? data.predicted_class ?? data.predictedClass, confidence: data.confidence });
       setTopk([]);
       setShowTopk(false);
     } catch (err) {
@@ -75,11 +56,7 @@ const PlantDiseasePredictor = () => {
   };
 
   const handleTopk = async () => {
-    if (!ensureFile()) return;
-    if (!plant) {
-      alert("Please select a plant.");
-      return;
-    }
+    if (!ensureFile() || !plant) return alert("Please select a plant.");
 
     setIsLoading(true);
     const formData = new FormData();
@@ -103,14 +80,15 @@ const PlantDiseasePredictor = () => {
   };
 
   return (
-    <div className="container mt-5">
+    <div className="container my-5">
       <div className="row justify-content-center">
-        <div className="col-md-8">
-          <div className="card p-4 shadow">
-            <h2 className="card-title text-center mb-4">Plant Disease Predictor 🌱</h2>
+        <div className="col-lg-7 col-md-8 col-sm-10">
+          <div className="card shadow-lg p-4 border-0 rounded-4">
+            <h2 className="card-title text-center mb-4 text-success">🌱 Plant Disease Detector</h2>
+
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
-                <label htmlFor="plantSelect" className="form-label">Select Plant</label>
+                <label htmlFor="plantSelect" className="form-label fw-bold">Select Plant</label>
                 <select id="plantSelect" className="form-select" value={plant} onChange={handlePlantChange}>
                   <option value="">-- Select Plant --</option>
                   <option value="tomato">Tomato</option>
@@ -122,7 +100,7 @@ const PlantDiseasePredictor = () => {
               </div>
 
               <div className="mb-3">
-                <label htmlFor="imageUpload" className="form-label">Upload Image</label>
+                <label htmlFor="imageUpload" className="form-label fw-bold">Upload Image</label>
                 <input
                   id="imageUpload"
                   ref={fileInputRef}
@@ -136,35 +114,31 @@ const PlantDiseasePredictor = () => {
 
               {previewUrl && (
                 <div className="text-center mb-3">
-                  <p className="fw-bold">Preview:</p>
-                  <img src={previewUrl} alt="Selected preview" className="img-fluid rounded border" style={{ maxHeight: "300px" }} />
+                  <p className="fw-semibold">Preview</p>
+                  <img src={previewUrl} alt="preview" className="img-fluid rounded-4 border shadow-sm" style={{ maxHeight: "300px" }} />
                 </div>
               )}
 
-              {file && <div className="text-center mb-3 text-muted">Selected: {file.name}</div>}
+              {file && <p className="text-center text-muted mb-3">Selected: {file.name}</p>}
 
-              <div className="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
-                <button type="submit" className="btn btn-primary" disabled={isLoading}>Predict</button>
-                <button type="button" onClick={handleTopk} className="btn btn-secondary" disabled={isLoading}>Show Top‑5</button>
+              <div className="d-flex justify-content-center gap-3 mb-3 flex-wrap">
+                <button type="submit" className="btn btn-success px-4" disabled={isLoading}>Predict</button>
+                <button type="button" className="btn btn-outline-success px-4" onClick={handleTopk} disabled={isLoading}>Top‑5</button>
               </div>
             </form>
 
             {isLoading && (
-              <div className="d-flex justify-content-center mt-4">
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
+              <div className="text-center my-4">
+                <div className="spinner-border text-success" role="status"></div>
               </div>
             )}
 
             {prediction && (
-              <div className="card mt-4 p-3 bg-light">
-                <h4 className="card-title text-center">Prediction Result</h4>
-                <p className="mb-1"><strong>Plant:</strong> {plant}</p>
-                <p className="mb-1"><strong>Disease:</strong> {prediction.prediction}</p>
-                {prediction.confidence != null && (
-                  <p className="mb-0"><strong>Confidence:</strong> {(prediction.confidence * 100).toFixed(2)}%</p>
-                )}
+              <div className="card mt-4 p-3 bg-light rounded-4 shadow-sm border">
+                <h4 className="text-center text-success mb-3">Prediction Result</h4>
+                <p><strong>Plant:</strong> {plant}</p>
+                <p><strong>Disease:</strong> {prediction.prediction}</p>
+                {prediction.confidence != null && <p><strong>Confidence:</strong> {(prediction.confidence * 100).toFixed(2)}%</p>}
               </div>
             )}
           </div>
@@ -173,25 +147,25 @@ const PlantDiseasePredictor = () => {
 
       {showTopk && (
         <>
-          <div className="modal fade show d-block" tabIndex="-1" role="dialog" aria-labelledby="topkModalLabel" aria-hidden="true">
+          <div className="modal fade show d-block" tabIndex="-1">
             <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title" id="topkModalLabel">Top‑5 Predictions</h5>
-                  <button type="button" className="btn-close" onClick={() => setShowTopk(false)} aria-label="Close"></button>
+              <div className="modal-content rounded-4 shadow-lg border-0">
+                <div className="modal-header bg-success text-white rounded-top-4">
+                  <h5 className="modal-title">Top‑5 Predictions</h5>
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setShowTopk(false)}></button>
                 </div>
                 <div className="modal-body">
                   <ul className="list-group list-group-flush">
                     {topk.map((t, i) => (
                       <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
                         {t.class}
-                        <span className="badge bg-primary rounded-pill">{(t.confidence * 100).toFixed(2)}%</span>
+                        <span className="badge bg-success rounded-pill">{(t.confidence * 100).toFixed(2)}%</span>
                       </li>
                     ))}
                   </ul>
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowTopk(false)}>Close</button>
+                  <button type="button" className="btn btn-outline-success" onClick={() => setShowTopk(false)}>Close</button>
                 </div>
               </div>
             </div>
