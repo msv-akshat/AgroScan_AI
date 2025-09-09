@@ -14,7 +14,7 @@ const PlantDiseasePredictor = () => {
 
   const fileInputRef = useRef(null);
 
-  const BACKEND_URL = "http://13.48.56.255:5000";  // your EC2 public IP
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://13.48.56.255:5000";
 
   const handleFileChange = (e) => {
     const f = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
