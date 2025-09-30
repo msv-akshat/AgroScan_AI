@@ -1,54 +1,52 @@
-name: Frontend Deploy
+name: Build and Deploy
 
 on:
   push:
     branches:
-      - main   # triggers on any push to main
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repo
+      # 1️⃣ Checkout the repo
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Node.js
+      # 2️⃣ Setup Node.js 20
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: '20'
 
       # 3️⃣ Install dependencies
       - name: Install dependencies
-        working-directory: frontend
         run: npm ci
+        working-directory: ./frontend  # adjust if your frontend folder is different
 
-      # 4️⃣ Build frontend
+      # 4️⃣ Build the frontend
       - name: Build frontend
-        working-directory: frontend
         run: npm run build
+        working-directory: ./frontend
 
-      # 5️⃣ Deploy to S3
+      # 5️⃣ Sync build output to S3
       - name: Deploy to S3
-        uses: jakejarvis/s3-sync-action@master
+        uses: jakejarvis/s3-sync-action@v0.5.1
         with:
           args: --acl public-read --follow-symlinks --delete
-          source_dir: frontend/dist
-          bucket: ${{ secrets.AWS_S3_BUCKET }}
-          region: ${{ secrets.AWS_REGION }}
         env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}   # your S3 bucket
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
 
-      # 6️⃣ Invalidate CloudFront cache
-      - name: Invalidate CloudFront cache
+      # 6️⃣ (Optional) Invalidate CloudFront cache
+      - name: Invalidate CloudFront
         uses: chetan/invalidate-cloudfront-action@v2
         with:
-          distribution: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
-          paths: "/*"
+          distribution-id: ${{ secrets.CLOUDFRONT_DIST_ID }}
+          paths: '/*'
         env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
