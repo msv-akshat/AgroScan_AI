@@ -34,7 +34,7 @@ jobs:
 
       # 5️⃣ Deploy to S3
       - name: Deploy to S3
-        uses: aws-actions/s3-sync@v1.4.0
+        uses: aws-actions/s3-sync@v1.0.2
         with:
           bucket: ${{ secrets.AWS_S3_BUCKET }}
           region: ${{ secrets.AWS_REGION }}
@@ -43,6 +43,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
 
 
       # 6️⃣ Invalidate CloudFront cache
