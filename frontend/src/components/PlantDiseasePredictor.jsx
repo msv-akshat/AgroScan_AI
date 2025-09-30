@@ -17,11 +17,9 @@ const PlantDiseasePredictor = () => {
   const fileInputRef = useRef(null);
 
   // Use Lambda API Gateway endpoint
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL ||
-  "https://fecil5ew47tajxpqobh45lar640pwlmv.lambda-url.us-east-1.on.aws/";
-
-
+  const BACKEND_URL =
+    import.meta.env.VITE_BACKEND_URL ||
+    "https://fecil5ew47tajxpqobh45lar640pwlmv.lambda-url.us-east-1.on.aws/";
 
   const handleFileChange = (e) => {
     const f = e.target.files?.[0] || null;
@@ -77,8 +75,9 @@ const BACKEND_URL =
   };
 
   return (
-    <div className="container my-5">
-      <div className="row justify-content-center">
+    // Use container-lg to make it stretch nicely on large screens
+    <div className="container-lg my-5">
+      <div className="row justify-content-center"> {/* This centers the content column */}
         <div className="col-lg-7 col-md-8 col-sm-10">
           <div className="card shadow-lg p-4 border-0 rounded-4">
             <form
@@ -96,7 +95,13 @@ const BACKEND_URL =
               />
 
               <div className="d-flex justify-content-center gap-3 mb-3 flex-wrap">
-                <button type="submit" className="btn btn-success px-4" disabled={isLoading}>
+                {/* Use a custom style for a deeper green button */}
+                <button
+                  type="submit"
+                  className="btn px-4 text-white"
+                  disabled={isLoading}
+                  style={{ backgroundColor: '#0f7d0f', borderColor: '#0f7d0f' }}
+                >
                   Predict
                 </button>
                 <button
