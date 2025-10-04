@@ -1,8 +1,9 @@
+
 # AgroScan AI
 
 **AI-Powered Plant Disease Detection — Serverless, Cloud-Native, Production-Ready**
 
-AgroScan AI is a robust web platform that leverages deep learning (CNN) and AWS serverless architecture for instant crop disease diagnosis. Farmers and researchers can get rapid, reliable results through an integrated React frontend and scalable FastAPI backend.
+AgroScan AI leverages deep learning and AWS serverless architecture for instant crop disease diagnosis. Farmers and researchers get fast, reliable results through a React frontend, FastAPI backend, and automated cloud deployment.
 
 ***
 
@@ -16,7 +17,7 @@ AgroScan AI is a robust web platform that leverages deep learning (CNN) and AWS 
 6. [Project Structure](#project-structure)
 7. [Setup \& Deployment](#setup--deployment)
 8. [Model Training](#model-training)
-9. [Roadmap](#roadmap)
+9. [Planned Improvements](#planned-improvements)
 10. [Author](#author)
 11. [License](#license)
 
@@ -31,12 +32,12 @@ AgroScan AI is a robust web platform that leverages deep learning (CNN) and AWS 
 
 ## Features
 
-- Fast, accurate crop disease detection using deep learning
-- Supports maize, tomato, apple, grape, and 30+ crop diseases
-- Serverless backend (FastAPI, Lambda, Docker, ECR, API Gateway)
-- Responsive React + Tailwind CSS frontend (AWS Amplify hosting)
-- Easy model retraining, auto deployments via GitHub Actions
-- Architecture designed for robust scaling and rapid inference
+- Instant crop disease diagnosis from images
+- 38+ supported crop-disease classes (maize, tomato, apple, grape, etc.)
+- Serverless backend (FastAPI on AWS Lambda using Docker/ECR, API Gateway)
+- Modern, responsive React + Tailwind CSS frontend (AWS Amplify)
+- Easy retraining, modular infrastructure, seamless CI/CD via GitHub Actions
+- Optimized for scalability and reliability
 
 ***
 
@@ -55,17 +56,21 @@ AgroScan AI is a robust web platform that leverages deep learning (CNN) and AWS 
 
 ## Architecture
 
-*AWS Amplify for frontend, API Gateway for secure routing, Lambda (ECR/Docker) running FastAPI, and modular cloud-native flow.*
 <img width="1024" height="1024" alt="Gemini_Generated_Image_7q1le07q1le07q1l" src="https://github.com/user-attachments/assets/216825b3-38f8-45cf-b48f-3c483e6b4c6b" />
+*AWS Amplify for frontend, API Gateway for secure routing, Lambda (ECR/Docker) running FastAPI, and modular, cloud-native design.*
 
 ***
 
 ## Tech Stack
 
-- **Frontend:** React.js, Tailwind CSS, AWS Amplify
-- **Backend:** FastAPI (Python), Docker, AWS Lambda, AWS API Gateway, AWS ECR
-- **ML Model:** TensorFlow, Keras, PyTorch (training notebook included), OpenCV
-- **CI/CD \& Infra:** GitHub Actions, AWS CloudWatch
+| Layer | Technologies \& Tools |
+| :-- | :-- |
+| **Frontend** | React.js, Tailwind CSS, Vite, JavaScript, AWS Amplify |
+| **Frontend Build** | Vite, npm, ESLint |
+| **Backend** | FastAPI (Python), Docker, AWS Lambda, AWS API Gateway, AWS ECR |
+| **ML Model** | TensorFlow, Keras, PyTorch, ONNX, OpenCV |
+| **Infra / CI/CD** | AWS Amplify, Docker, GitHub Actions, Vercel (testing), AWS CloudWatch |
+
 
 ***
 
@@ -73,13 +78,49 @@ AgroScan AI is a robust web platform that leverages deep learning (CNN) and AWS 
 
 ```
 AgroScan_AI/
-├── frontend/        # React application
-│   └── src/components/
-│   └── README.md
-├── ml_model/        # Backend (FastAPI, Lambda)
-│   └── notebooks/   # Model training notebook
-│   └── Dockerfile, app_lambda.py, etc.
-└── README.md
+├── .gitignore
+├── README.md
+├── package-lock.json
+├── package.json
+├── frontend/
+│   ├── .gitignore
+│   ├── README.md
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── vercel.json
+│   ├── vite.config.js
+│   ├── public/
+│   │   └── vite.svg
+│   └── src/
+│       ├── App.css
+│       ├── App.jsx
+│       ├── index.css
+│       ├── main.jsx
+│       ├── assets/
+│       │   └── react.svg
+│       ├── components/
+│       │   ├── ImageUploader.jsx
+│       │   ├── Loader.jsx
+│       │   ├── PlantDiseasePredictor.jsx
+│       │   ├── PlantSelector.jsx
+│       │   ├── PredictionResult.jsx
+│       │   └── TopKModal.jsx
+│       └── config/
+│           └── plants.js
+├── ml_model/
+│   ├── Dockerfile
+│   ├── app_lambda.py
+│   ├── check_model.py
+│   ├── check_onnx.py
+│   ├── require
+│   ├── requirements-min.txt
+│   ├── requirements.txt
+│   ├── save_as_onnx.py
+│   ├── temp.jpg
+│   └── notebooks/
+│       └── convert_to_tfjs.py
 ```
 
 
@@ -101,7 +142,7 @@ cd AgroScan_AI
 cd frontend
 npm install
 npm run build
-# Deploy: connect to AWS Amplify, auto-deploy from GitHub main
+# Deploy to AWS Amplify for CI/CD (auto-deploy from GitHub main branch)
 ```
 
 
@@ -122,23 +163,22 @@ docker build -t agroscan-ai .
 
 ## Model Training
 
-- Model code \& full training workflow in:
+- Model training/execution workflow and code:
 
 ```
 ml_model/notebooks/model_training_notebook.ipynb
 ```
 
-- CNN (TensorFlow/Keras) achieves ~92% validation accuracy. Includes data augmentation, normalization, 38 crop/disease classes.
+- CNN (TensorFlow/Keras) achieves ~92% validation accuracy on 38+ classes with augmentation \& normalization.
 
 ***
 
-## Roadmap
+## Planned Improvements
 
-- [ ] Visual crop/symptom localization
-- [ ] Weather-aware crop health forecasts
-- [ ] Multilingual and voice assistant interface
-- [ ] Progressive Web App, mobile UX
-- [ ] Analytical dashboard for farmers \& researchers
+- Error handling for non-image/invalid file uploads
+- CLI for simple model retraining and deployment
+- Improved UI loading indicators and confidence explanations
+- Expanded troubleshooting and FAQ in docs
 
 ***
 
@@ -157,6 +197,5 @@ AI, Cloud \& Full Stack Developer
 MIT License
 
 ***
-
 
 
