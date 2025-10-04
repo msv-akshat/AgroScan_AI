@@ -27,6 +27,8 @@ ml_model/temp_lambda_package/
 ml_model/uploads/
 ml_model/data/
 ml_model/notebooks/
+# Exception: Allow specific training notebook
+!ml_model/notebooks/train_model_torch.ipynb
 ml_model/function_package/
 
 # Secrets / Keys
