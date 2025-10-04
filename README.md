@@ -169,7 +169,7 @@ docker build -t agroscan-ai .
 ml_model/notebooks/model_training_notebook.ipynb
 ```
 
-- CNN (TensorFlow/Keras) achieves ~92% validation accuracy on 38+ classes with augmentation \& normalization.
+- CNN (TensorFlow/Keras) achieves ~98% validation accuracy on 38+ classes with augmentation \& normalization.
 
 ***
 
@@ -197,5 +197,6 @@ AI, Cloud \& Full Stack Developer
 MIT License
 
 ***
+
 
 
