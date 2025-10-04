@@ -43,16 +43,20 @@ AgroScan AI is a robust web platform that leverages deep learning (CNN) and AWS 
 ## Screenshots
 
 **User Interface**
+<img width="1918" height="1012" alt="Screenshot 2025-10-01 232836" src="https://github.com/user-attachments/assets/aaa36c1f-b36c-463e-850b-3161cd32ccc0" />
 
 **Detection Results**
+<img width="1913" height="1008" alt="Screenshot 2025-10-01 233020" src="https://github.com/user-attachments/assets/857c7f4b-b56c-4313-9f85-3d4339767b57" />
 
 **Accuracy Curve**
+<img width="1263" height="682" alt="Screenshot 2025-10-01 234333" src="https://github.com/user-attachments/assets/23a448fb-d7ab-4a5c-89e0-02dde545a1e6" />
 
 ***
 
 ## Architecture
 
 *AWS Amplify for frontend, API Gateway for secure routing, Lambda (ECR/Docker) running FastAPI, and modular cloud-native flow.*
+<img width="1024" height="1024" alt="Gemini_Generated_Image_7q1le07q1le07q1l" src="https://github.com/user-attachments/assets/216825b3-38f8-45cf-b48f-3c483e6b4c6b" />
 
 ***
 
@@ -153,5 +157,6 @@ AI, Cloud \& Full Stack Developer
 MIT License
 
 ***
+
 
 
