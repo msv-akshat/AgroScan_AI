@@ -26,7 +26,6 @@ AgroScan AI leverages deep learning and AWS serverless architecture for instant 
 ## Live Demo
 
 - **[Try AgroScan AI](https://main.d3n8iyuxmo9pz7.amplifyapp.com/)**
-- **[GitHub Repo](https://github.com/msv-akshat/AgroScan_AI)**
 
 ***
 
@@ -197,6 +196,7 @@ AI, Cloud \& Full Stack Developer
 MIT License
 
 ***
+
 
 
 
